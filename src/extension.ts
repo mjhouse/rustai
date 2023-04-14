@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+
 import { getCurrentFunction } from './functions';
 import { generateFunctionComment, insertFunctionComment } from './generate';
 import { cleanComment, getIndent } from './utilities';

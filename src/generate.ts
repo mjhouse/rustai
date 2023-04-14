@@ -1,15 +1,11 @@
 import * as vscode from 'vscode';
 import { Configuration, OpenAIApi } from "openai";
 import { Function } from "./functions";
-import { removeComments, lastCharacter } from './utilities';
+import { removeComments } from './utilities';
 
-let OPENAI_API_KEY: string = '<PUT YOUR API KEY HERE>';
-
-const configuration = new Configuration({
-    apiKey: OPENAI_API_KEY,
-});
-
-const openai = new OpenAIApi(configuration);
+const DEFAULT_MODEL: string = 'text-davinci-002';
+const DEFAULT_TEMP: number = 0.25;
+const DEFAULT_TOKENS: number = 2000;
 
 const METHOD_COMMENT = (text: string, name: string) => {
     return `
@@ -26,12 +22,34 @@ const METHOD_COMMENT = (text: string, name: string) => {
 }
 
 async function generate(prompt: string): Promise<string | null> {
+    // get the extension configuration and api key
+    const config = vscode.workspace.getConfiguration('rustai');
+    const api_key: string = config.get('openAiApiKey','');
+
+    // get other configuration values
+    const model: string = config.get('openAiModel',DEFAULT_MODEL);
+    const temp: number = config.get('openAiTemperature',DEFAULT_TEMP);
+    const tokens: number = config.get('openAiMaxTokens',DEFAULT_TOKENS);
+
+    // check that the key exists
+    if(!api_key){
+        return null;
+    }
+
+    // build an open ai client with the key
+    const openai = new OpenAIApi(new Configuration({
+        apiKey: api_key,
+    }));
+
+    // fetch a response from the api
 	const response = await openai.createCompletion({
-		model: "text-davinci-002",
+		model: model,
 		prompt: prompt,
-		temperature: 0.25,
-		max_tokens: 2000,
+		temperature: temp,
+		max_tokens: tokens,
 	});
+
+    // get the generated responses 
     let result = response.data?.choices;
 
     if(result){

@@ -1,13 +1,13 @@
 {
   "name": "rustai",
-  "displayName": "rustai",
+  "displayName": "Rust AI",
   "description": "An extension for generating rust code and documentation",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.77.0"
   },
   "categories": [
-    "Other"
+    "Other", "Snippets"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
@@ -21,7 +21,36 @@
         "command": "rustai.generateUnitTests",
         "title": "Generate Unit Tests"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Rust AI",
+      "properties": {
+        "rustai.openAiApiKey": {
+          "title": "OpenAI API Key",
+          "type": "string",
+          "default": "",
+          "description": "A valid OpenAI API key used to generate documentation comments"
+        },
+        "rustai.openAiModel": {
+          "title": "OpenAI Model",
+          "type": "string",
+          "default": "text-davinci-002",
+          "description": "The model to use for generating documentation comments"
+        },
+        "rustai.openAiTemperature": {
+          "title": "OpenAI Temperature",
+          "type": "number",
+          "default": 0.25,
+          "description": "The amount of randomness to use in generating documentation comments"
+        },
+        "rustai.openAiMaxTokens": {
+          "title": "OpenAI Max Tokens",
+          "type": "number",
+          "default": 2000,
+          "description": "The maximum length in characters of generated documentation comments"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
