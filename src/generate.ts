@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import { Configuration, OpenAIApi } from "openai";
 import { Function } from "./functions";
-import { removeComments } from './utilities';
+import { Type, removeComments } from './utilities';
 import { Struct } from './structs';
 import { Trait } from './traits';
+import { Structure } from './common';
 
 const DEFAULT_MODEL: string = 'text-davinci-002';
 const DEFAULT_TEMP: number = 0.25;
@@ -36,15 +37,25 @@ const STRUCT_COMMENT = (body: string) => {
 
 const METHOD_COMMENT = (text: string, name: string) => {
     return `
+        Write a doc comment for the following method on the ${name} object:
+        "${text}"
+
+        The doc comment should be written in markdown using three slashes on each line (like '///'), 
+        contain a brief description of what the function does, list the arguments to the function,
+        the return value, and a minimal example of how to use the function without any 'using' statements or 
+        namespaces. Do not include any explanation or other non-commented code.
+    `
+}
+
+const FUNCTION_COMMENT = (text: string) => {
+    return `
         Write a doc comment for the following function:
         "${text}"
 
         The doc comment should be written in markdown using three slashes on each line (like '///'), 
         contain a brief description of what the function does, list the arguments to the function,
         the return value, and a minimal example of how to use the function without any 'using' statements or 
-        namespaces. Do not include 
-        any explanation or other non-commented code. If the function is indented or contains a 'self'
-        parameter, assume it is a method on the object "${name}".
+        namespaces. Do not include any explanation or other non-commented code.
     `
 }
 
@@ -87,46 +98,27 @@ async function generate(prompt: string): Promise<string | null> {
     }
 }
 
-export async function generateFunctionComment(target: Function): Promise<string | null> {
+export async function generateComment(target: Structure, owner: Structure | null, body: string): Promise<string | null> {
     const editor = vscode.window.activeTextEditor;
-    const text = editor?.document.getText(target.body);
+    let prompt = null;
 
-    if(!text){
-        return null;
+    switch(target.type){
+        case Type.Function:
+            if(owner){
+                prompt = METHOD_COMMENT(body,owner.name);
+            } else {
+                prompt = FUNCTION_COMMENT(body);
+            }
+            break;
+        case Type.Struct:
+            prompt = STRUCT_COMMENT(body);
+            break;
+        case Type.Trait:
+            prompt = TRAIT_COMMENT(body);
+            break;
     }
 
-    const prompt = METHOD_COMMENT(text,target.owner.name);
-    const result = generate(prompt);
-
-    return result;
-}
-
-export async function generateStructComment(target: Struct): Promise<string | null> {
-    const editor = vscode.window.activeTextEditor;
-    const text = editor?.document.getText(target.body);
-
-    if(!text){
-        return null;
-    }
-
-    const prompt = STRUCT_COMMENT(text);
-    const result = generate(prompt);
-
-    return result;
-}
-
-export async function generateTraitComment(target: Trait): Promise<string | null> {
-    const editor = vscode.window.activeTextEditor;
-    const text = editor?.document.getText(target.body);
-
-    if(!text){
-        return null;
-    }
-
-    const prompt = TRAIT_COMMENT(text);
-    const result = generate(prompt);
-
-    return result;
+    return prompt ? generate(prompt) : null;
 }
 
 export async function insertComment(position: number, comment: string): Promise<void> {

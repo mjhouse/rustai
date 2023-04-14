@@ -16,13 +16,13 @@ suite('Functions Test Suite', () => {
         const editor = await vscode.window.showTextDocument(document);
 
         // put the cursor inside of a new function
-        let start = new vscode.Position(20,10);
+        let start = new vscode.Position(21,10);
         editor.selection = new vscode.Selection(start,start);
 
-        let found = findFunctionStart(start);
+        let found = await findFunctionStart(start);
 
         // vertify that the found position is correct
-        assert.strictEqual(found?.line,17); // line number is zero-indexed
+        assert.strictEqual(found?.line,20); // line number is zero-indexed
         assert.strictEqual(found?.character,0);
 	});
 
@@ -31,14 +31,14 @@ suite('Functions Test Suite', () => {
         const editor = await vscode.window.showTextDocument(document);
 
         // put the cursor inside of a new function
-        let start = new vscode.Position(17,0);
+        let start = new vscode.Position(20,0);
         editor.selection = new vscode.Selection(start,start);
 
-        let found = findFunctionEnd(start);
+        let found = await findFunctionEnd(start);
 
         // vertify that the found position is correct
-        assert.strictEqual(found?.line,21); // line number is zero-indexed
-        assert.strictEqual(found?.character,4);
+        assert.strictEqual(found?.line,24); // line number is zero-indexed
+        assert.strictEqual(found?.character,5);
 	});
 
     test('Find function body', async () => {
@@ -46,19 +46,19 @@ suite('Functions Test Suite', () => {
         const editor = await vscode.window.showTextDocument(document);
 
         // put the cursor inside of a new function
-        let initial = new vscode.Position(18,0);
+        let initial = new vscode.Position(23,0);
         editor.selection = new vscode.Selection(initial,initial);
 
-        let found = findFunctionBody(initial);
+        let found = await findFunctionBody(initial);
 
         let start = found?.anchor;
         let end = found?.end;
 
         // vertify that the found selection is correct
-        assert.strictEqual(start?.line,17);
+        assert.strictEqual(start?.line,20);
         assert.strictEqual(start?.character,0);
-        assert.strictEqual(end?.line,21);
-        assert.strictEqual(end?.character,4);
+        assert.strictEqual(end?.line,24);
+        assert.strictEqual(end?.character,5);
 	});
 
     test('Find function owner for struct impl', async () => {
@@ -66,11 +66,11 @@ suite('Functions Test Suite', () => {
         const editor = await vscode.window.showTextDocument(document);
 
         // put the cursor inside of a new function
-        let initial = new vscode.Position(17,0);
+        let initial = new vscode.Position(20,0);
         let cursor = new vscode.Selection(initial,initial);
         editor.selection = cursor;
 
-        let owner = findFunctionOwner(cursor);
+        let owner = await findFunctionOwner(cursor);
 
         // vertify that the found owner is correct
         assert.strictEqual(owner?.name,'Binary');
@@ -86,7 +86,7 @@ suite('Functions Test Suite', () => {
         let cursor = new vscode.Selection(initial,initial);
         editor.selection = cursor;
 
-        let owner = findFunctionOwner(cursor);
+        let owner = await findFunctionOwner(cursor);
 
         // vertify that the found owner is correct
         assert.strictEqual(owner?.name,'FromBytes');
@@ -98,18 +98,18 @@ suite('Functions Test Suite', () => {
         const editor = await vscode.window.showTextDocument(document);
 
         // put the cursor inside of a new function
-        let initial = new vscode.Position(20,0);
+        let initial = new vscode.Position(23,0);
         editor.selection = new vscode.Selection(initial,initial);
 
         let func = await getCurrentFunction();
 
         // vertify that the found function is correct
         assert(func);
-        assert.strictEqual(func?.body.anchor.line,17);
-        assert.strictEqual(func?.body.end.line,21);
-        assert.strictEqual(func?.body.end.character,4);
-        assert.strictEqual(func?.owner.name,'Binary');
-        assert.strictEqual(func?.owner.type,Type.StructImpl);
+        assert.strictEqual(func?.body.anchor.line,20);
+        assert.strictEqual(func?.body.end.line,24);
+        assert.strictEqual(func?.body.end.character,5);
+        assert.strictEqual(func?.owner?.name,'Binary');
+        assert.strictEqual(func?.owner?.type,Type.StructImpl);
 	});
 
     test('Find function in trait impl', async () => {
@@ -126,9 +126,9 @@ suite('Functions Test Suite', () => {
         assert(func);
         assert.strictEqual(func?.body.anchor.line,115);
         assert.strictEqual(func?.body.end.line,117);
-        assert.strictEqual(func?.body.end.character,4);
-        assert.strictEqual(func?.owner.name,'IntoBytes');
-        assert.strictEqual(func?.owner.type,Type.TraitImpl);
+        assert.strictEqual(func?.body.end.character,5);
+        assert.strictEqual(func?.owner?.name,'IntoBytes');
+        assert.strictEqual(func?.owner?.type,Type.TraitImpl);
 	});
 
 });

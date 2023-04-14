@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getType, Type, getBody, countMatch, lastCharacter, getObject } from './utilities';
+import { getType, Type, getBody, countMatch, lastCharacter, getObject, getIndent, removeComments } from './utilities';
 
 export class Documentable {
 
@@ -9,24 +9,19 @@ export class Documentable {
     // the body of the object
     body: vscode.Selection;
 
+    // the indention of the object
+    indent: string;
+
     constructor(
         name: string,
         body: vscode.Selection,
+        indent: string,
     ) {
         this.name = name;
         this.body = body;
+        this.indent = indent;
     }
 
-    content(): string | null {
-        const editor = vscode.window.activeTextEditor;
-        return editor?.document.getText(this.body) || null;
-    }
-
-    declaration(){
-        const editor = vscode.window.activeTextEditor;
-        return editor?.document.lineAt(this.body.anchor).text || null;
-    }
-    
 };
 
 export async function findObjectStart(currentPosition: vscode.Position, objectType: Type): Promise<vscode.Position | null> {
@@ -158,6 +153,90 @@ export async function getCurrentObject<T extends Documentable>(objectType: Type)
         return null;
     }
 
-    let block = new Documentable(name,body);
+    let indent = getIndent(line);
+
+    let block = new Documentable(name,body,indent);
     return block as T;
+}
+
+export class Structure {
+    type: Type;
+    name: string;
+    depth: number;
+    owner: number;
+    line: vscode.Position;
+    indent: string;
+
+    constructor(
+        type: Type,
+        name: string,
+        depth: number,
+        line: vscode.Position,
+        indent: string,
+    ) {
+        this.type = type;
+        this.name = name;
+        this.depth = depth;
+        this.owner = -1;
+        this.line = new vscode.Position(line.line,0);
+        this.indent = indent;
+    }
+}
+
+export async function getHierarchy(): Promise<Structure[]> {
+    const editor = vscode.window.activeTextEditor;
+    const selection = editor?.selection;
+    const initial = selection?.active;
+
+    if(!editor || !initial){
+        return [];
+    }
+
+    // type, name, depth, and contained
+    let result: Structure[] = [];
+
+    let text = "";
+    let name = "";
+    let type = Type.Unknown;
+    let line = new vscode.Position(initial.line,0);
+
+    let depth: number = 0;
+
+    // iterate until the top of the file
+    while(line.line != 0) {
+
+        // get the text, type and name
+        text = getBody(editor,line);
+        text = removeComments(text);
+        type = getType(text);
+        name = getObject(text,type) || '';
+
+        // get open and closing braces
+        let open = countMatch(text,/{/g);
+        let close = countMatch(text,/}/g);
+
+        // update the depth
+        depth = depth + (close - open);
+
+        // cache type and name if found
+        if(name){
+
+            // update previous elements
+            for(let i = result.length - 1; i >= 0 && result[i].depth > depth; --i){
+                result[i].owner = result.length;
+            }
+
+            let indent = getIndent(text);
+
+            // save current element with depth
+            result.push(new Structure(
+                type,name,depth,line,indent
+            ));
+        }
+
+        // move up by one line
+        line = line.translate({ lineDelta: -1 });
+    };
+
+    return result;
 }

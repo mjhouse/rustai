@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getType, getObject, Type, removeComments, getBody, lastCharacter, countMatch } from './utilities';
-import { findObjectBody, findObjectEnd, findObjectStart } from './common';
+import { Documentable, findObjectBody, findObjectEnd, findObjectStart, getCurrentObject } from './common';
 
 export class Owner {
     name: string;
@@ -15,39 +15,24 @@ export class Owner {
     }
 }
 
-export class Function {
+export class Function extends Documentable {
 
-    // the name of the function
-    name: string;
-
-    // the body of the function
-    body: vscode.Selection;
-
-    // the owning object (struct or trait)
-    owner: Owner;
+    // the owning object
+    owner: Owner | null;
 
     constructor(
         name: string,
         body: vscode.Selection,
-        owner: Owner
+        indent: string,
+        owner: Owner | null
     ) {
-        this.name = name;
-        this.body = body;
+        super(name,body,indent);
         this.owner = owner;
     }
 
-    content(): string | null {
-        const editor = vscode.window.activeTextEditor;
-        return editor?.document.getText(this.body) || null;
-    }
-
-    declaration(){
-        const editor = vscode.window.activeTextEditor;
-        return editor?.document.lineAt(this.body.anchor).text || null;
-    }
 }
 
-export function findFunctionOwner(functionBody: vscode.Selection): Owner | null {
+export async function findFunctionOwner(functionBody: vscode.Selection): Promise<Owner | null> {
 
     const editor = vscode.window.activeTextEditor;
     const initial = functionBody.anchor;
@@ -125,37 +110,7 @@ export async function findFunctionBody(currentPosition: vscode.Position): Promis
 }
 
 export async function getCurrentFunction(): Promise<Function | null> {
-    const editor = vscode.window.activeTextEditor;
-    let selection = editor?.selection;
-    let initial = selection?.active;
-
-    if(!editor){
-        return null;
-    }
-
-    if(!initial){
-        return null;
-    }
-
-    let body = await findFunctionBody(initial);
-    
-    if(!body){
-        return null;
-    }
-
-    let owner = findFunctionOwner(body);
-
-    if(!owner){
-        return null;
-    }
-
-    let start = body.anchor;
-    let line = getBody(editor,start);
-    let name = getObject(line,Type.Function);
-
-    if(!name){
-        return null;
-    }
-
-    return new Function(name,body,owner);
+    let result = await getCurrentObject(Type.Function) as Function;
+    result.owner = await findFunctionOwner(result?.body);
+    return result;
 }

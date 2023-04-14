@@ -1,75 +1,38 @@
 import * as vscode from 'vscode';
 
-import { getCurrentFunction } from './functions';
-import { getCurrentStruct } from './structs';
-import { generateFunctionComment, insertComment, generateStructComment, generateTraitComment } from './generate';
-import { cleanComment, getIndent, getCurrentScope, Type } from './utilities';
-import { getCurrentTrait } from './traits';
+import { insertComment, generateComment } from './generate';
+import { cleanComment, getBody } from './utilities';
+import { Structure, getHierarchy } from './common';
 
-async function generateTraitDoc(){
-    const target = await getCurrentTrait();
-    const declaration = target?.declaration();
+async function generateObjectComment(structure: Structure[]) {
+    const editor = vscode.window.activeTextEditor;
+    let target = structure[0];
 
-    if(!target){ return; }
-    if(!declaration){ return; }
+    if(!target || !editor){
+        return;
+    }
 
-    const indent = getIndent(declaration);
-    const comment = await generateTraitComment(target);
+    // get the declaration of the target
+    let body = getBody(editor,target.line);
 
-    if(!comment){ return; }
+    // get the parent of the target
+    let owner = structure[target.owner] || null;
 
-    const cleaned = cleanComment(indent,comment);
-    await insertComment(target.body.anchor.line,cleaned);
-}
-
-async function generateStructDoc(){
-    const target = await getCurrentStruct();
-    const declaration = target?.declaration();
-
-    if(!target){ return; }
-    if(!declaration){ return; }
-
-    const indent = getIndent(declaration);
-    const comment = await generateStructComment(target);
+    const comment = await generateComment(target,owner,body);
 
     if(!comment){ return; }
 
-    const cleaned = cleanComment(indent,comment);
-    await insertComment(target.body.anchor.line,cleaned);
-}
-
-async function generateFunctionDoc(){
-    const target = await getCurrentFunction();
-    const declaration = target?.declaration();
-
-    if(!target){ return; }
-    if(!declaration){ return; }
-
-    const indent = getIndent(declaration);
-    const comment = await generateFunctionComment(target);
-
-    if(!comment){ return; }
-
-    const cleaned = cleanComment(indent,comment);
-    await insertComment(target.body.anchor.line,cleaned);
+    const cleaned = cleanComment(target.indent,comment);
+    await insertComment(target.line.line,cleaned);
 }
 
 async function generateDocComment(){
-    switch(await getCurrentScope()){
-        case Type.Trait: 
-            await generateTraitDoc();
-            break;
-        case Type.Struct: 
-            await generateStructDoc();
-            break;
-        case Type.Function: 
-            await generateFunctionDoc();
-            break;
-    }
+    let structures = await getHierarchy();
+    await generateObjectComment(structures);
 }
 
 async function generateUnitTests(){
-    
+
 }
 
 // This method is called when your extension is activated
