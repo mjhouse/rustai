@@ -1,7 +1,35 @@
 import * as vscode from 'vscode';
 import { getType, Type, getBody, countMatch, lastCharacter, getObject } from './utilities';
 
-export function findObjectStart(currentPosition: vscode.Position, objectType: Type): vscode.Position | null {
+export class Documentable {
+
+    // the name of the object
+    name: string;
+
+    // the body of the object
+    body: vscode.Selection;
+
+    constructor(
+        name: string,
+        body: vscode.Selection,
+    ) {
+        this.name = name;
+        this.body = body;
+    }
+
+    content(): string | null {
+        const editor = vscode.window.activeTextEditor;
+        return editor?.document.getText(this.body) || null;
+    }
+
+    declaration(){
+        const editor = vscode.window.activeTextEditor;
+        return editor?.document.lineAt(this.body.anchor).text || null;
+    }
+    
+};
+
+export async function findObjectStart(currentPosition: vscode.Position, objectType: Type): Promise<vscode.Position | null> {
     const editor = vscode.window.activeTextEditor;
     let current = new vscode.Position(currentPosition.line,0);
 
@@ -31,7 +59,7 @@ export function findObjectStart(currentPosition: vscode.Position, objectType: Ty
     }
 }
 
-export function findObjectEnd(functionStart: vscode.Position, objectType: Type): vscode.Position | null {
+export async function findObjectEnd(functionStart: vscode.Position, objectType: Type): Promise<vscode.Position | null> {
     const editor = vscode.window.activeTextEditor;
     let current = new vscode.Position(functionStart.line,0);
 
@@ -86,15 +114,15 @@ export function findObjectEnd(functionStart: vscode.Position, objectType: Type):
     }
 }
 
-export function findObjectBody(currentPosition: vscode.Position, objectType: Type): vscode.Selection | null {
+export async function findObjectBody(currentPosition: vscode.Position, objectType: Type): Promise<vscode.Selection | null> {
 
-    let start = findObjectStart(currentPosition,objectType);
+    let start = await findObjectStart(currentPosition,objectType);
 
     if(!start) {
         return null;
     }
 
-    let end = findObjectEnd(start,objectType);
+    let end = await findObjectEnd(start,objectType);
 
     if(!end){
         return null;
@@ -103,7 +131,7 @@ export function findObjectBody(currentPosition: vscode.Position, objectType: Typ
     return new vscode.Selection(start,end);
 }
 
-export async function getCurrentObject<T>(instance: { new(b: vscode.Selection, n: string): T ;}, objectType: Type): Promise<T | null> {
+export async function getCurrentObject<T extends Documentable>(objectType: Type): Promise<T | null> {
     const editor = vscode.window.activeTextEditor;
     let selection = editor?.selection;
     let initial = selection?.active;
@@ -116,7 +144,7 @@ export async function getCurrentObject<T>(instance: { new(b: vscode.Selection, n
         return null;
     }
 
-    let body = findObjectBody(initial,objectType);
+    let body = await findObjectBody(initial,objectType);
     
     if(!body){
         return null;
@@ -130,5 +158,6 @@ export async function getCurrentObject<T>(instance: { new(b: vscode.Selection, n
         return null;
     }
 
-    return new instance(body,name);
+    let block = new Documentable(name,body);
+    return block as T;
 }

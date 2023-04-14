@@ -1,46 +1,21 @@
 import * as vscode from 'vscode';
 import { getType, getObject, Type, removeComments, getBody, lastCharacter, countMatch } from './utilities';
-import { findObjectBody, findObjectEnd, findObjectStart, getCurrentObject } from './common';
+import { Documentable, findObjectBody, findObjectEnd, findObjectStart, getCurrentObject } from './common';
 
-export class Struct {
-    
-    // the name of the struct
-    name: string;
+export class Struct extends Documentable {}
 
-    // the body of the struct
-    body: vscode.Selection;
-
-    constructor(
-        body: vscode.Selection,
-        name: string
-    ) {
-        this.body = body;
-        this.name = name;
-    }
-
-    content(): string | null {
-        const editor = vscode.window.activeTextEditor;
-        return editor?.document.getText(this.body) || null;
-    }
-
-    declaration(){
-        const editor = vscode.window.activeTextEditor;
-        return editor?.document.lineAt(this.body.anchor).text || null;
-    }
+export async function findStructStart(currentPosition: vscode.Position): Promise<vscode.Position | null> {
+    return await findObjectStart(currentPosition,Type.Struct);
 }
 
-export function findStructStart(currentPosition: vscode.Position): vscode.Position | null {
-    return findObjectStart(currentPosition,Type.Struct);
+export async function findStructEnd(structStart: vscode.Position): Promise<vscode.Position | null> {
+    return await findObjectEnd(structStart,Type.Struct);
 }
 
-export function findStructEnd(structStart: vscode.Position): vscode.Position | null {
-    return findObjectEnd(structStart,Type.Struct);
-}
-
-export function findStructBody(currentPosition: vscode.Position): vscode.Selection | null {
-    return findObjectBody(currentPosition,Type.Struct);
+export async function findStructBody(currentPosition: vscode.Position): Promise<vscode.Selection | null> {
+    return await findObjectBody(currentPosition,Type.Struct);
 }
 
 export async function getCurrentStruct(): Promise<Struct | null> {
-    return await getCurrentObject(Struct,Type.Struct);
+    return await getCurrentObject(Type.Struct);
 }

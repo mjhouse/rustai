@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { getType, getObject, Type, removeComments, getBody, lastCharacter, countMatch } from './utilities';
+import { findObjectBody, findObjectEnd, findObjectStart } from './common';
 
 export class Owner {
     name: string;
@@ -16,6 +17,9 @@ export class Owner {
 
 export class Function {
 
+    // the name of the function
+    name: string;
+
     // the body of the function
     body: vscode.Selection;
 
@@ -23,9 +27,11 @@ export class Function {
     owner: Owner;
 
     constructor(
+        name: string,
         body: vscode.Selection,
         owner: Owner
     ) {
+        this.name = name;
         this.body = body;
         this.owner = owner;
     }
@@ -38,36 +44,6 @@ export class Function {
     declaration(){
         const editor = vscode.window.activeTextEditor;
         return editor?.document.lineAt(this.body.anchor).text || null;
-    }
-}
-
-export function findFunctionStart(currentPosition: vscode.Position): vscode.Position | null {
-    const editor = vscode.window.activeTextEditor;
-    let current = new vscode.Position(currentPosition.line,0);
-
-    if(!editor){
-        return null;
-    }
-
-    try {
-        while(true){
-            let line = getBody(editor,current);
-            let type = getType(line);
-
-            switch(type){
-                case Type.Function:
-                    return current;
-                case Type.Unknown:
-                    current = current.translate({lineDelta: -1})
-                    break;
-                default:
-                    return null;
-            }
-        }
-    }
-    catch(e){
-        console.log(e);
-        return null;
     }
 }
 
@@ -136,77 +112,16 @@ export function findFunctionOwner(functionBody: vscode.Selection): Owner | null 
     }
 }
 
-export function findFunctionEnd(functionStart: vscode.Position): vscode.Position | null {
-
-    const editor = vscode.window.activeTextEditor;
-    let current = new vscode.Position(functionStart.line,0);
-
-    if(!editor){
-        return null;
-    }
-
-    let line = getBody(editor,current);
-
-    // if this isn't the start of a function, exit
-    if(getType(line) != Type.Function){
-        return null;
-    }
-
-    try {
-
-        let depth = 0;
-        let start = true;
-
-        // set position back a line so that it advances inside the loop
-        current = current.with({ line: current.line - 1 })
-
-        do {
-            // advance to the next line to be processed
-            current = current.with({ line: current.line + 1 });
-
-            // get the text of the line
-            line = getBody(editor,current);
-
-            // get open and closing braces
-            let open = countMatch(line,/{/g);
-            let close = countMatch(line,/}/g);
-
-            // update the depth
-            depth += open - close;
-
-            // advance until the first brace
-            if(open > 0 && start) {
-                start = false;
-            }
-        }
-        while(start || depth > 0);
-
-        // advance to the end of the line and return
-        return current.with({ 
-            character: lastCharacter(current) 
-        });
-    }
-    catch(e){
-        console.log(e);
-        return null;
-    }
+export async function findFunctionStart(currentPosition: vscode.Position): Promise<vscode.Position | null> {
+    return await findObjectStart(currentPosition,Type.Function);
 }
 
-export function findFunctionBody(currentPosition: vscode.Position): vscode.Selection | null {
+export async function findFunctionEnd(functionStart: vscode.Position): Promise<vscode.Position | null> {
+    return await findObjectEnd(functionStart,Type.Function);
+}
 
-    let start = findFunctionStart(currentPosition);
-
-    if(!start) {
-        return null;
-    }
-
-    let end = findFunctionEnd(start);
-
-    if(!end){
-        return null;
-    }
-
-    return new vscode.Selection(start,end);
+export async function findFunctionBody(currentPosition: vscode.Position): Promise<vscode.Selection | null> {
+    return await findObjectBody(currentPosition,Type.Function);
 }
 
 export async function getCurrentFunction(): Promise<Function | null> {
@@ -214,11 +129,15 @@ export async function getCurrentFunction(): Promise<Function | null> {
     let selection = editor?.selection;
     let initial = selection?.active;
 
+    if(!editor){
+        return null;
+    }
+
     if(!initial){
         return null;
     }
 
-    let body = findFunctionBody(initial);
+    let body = await findFunctionBody(initial);
     
     if(!body){
         return null;
@@ -230,5 +149,13 @@ export async function getCurrentFunction(): Promise<Function | null> {
         return null;
     }
 
-    return new Function(body,owner);
+    let start = body.anchor;
+    let line = getBody(editor,start);
+    let name = getObject(line,Type.Function);
+
+    if(!name){
+        return null;
+    }
+
+    return new Function(name,body,owner);
 }
