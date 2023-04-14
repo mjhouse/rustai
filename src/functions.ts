@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getType, getObject, Type, removeComments } from './utilities';
+import { getType, getObject, Type, removeComments, getBody, lastCharacter, countMatch } from './utilities';
 
 export class Owner {
     name: string;
@@ -39,10 +39,6 @@ export class Function {
         const editor = vscode.window.activeTextEditor;
         return editor?.document.lineAt(this.body.anchor).text || null;
     }
-}
-
-function getBody(editor: vscode.TextEditor, position: vscode.Position): string {
-    return editor.document.lineAt(position).text;
 }
 
 export function findFunctionStart(currentPosition: vscode.Position): vscode.Position | null {
@@ -156,17 +152,6 @@ export function findFunctionEnd(functionStart: vscode.Position): vscode.Position
         return null;
     }
 
-    // convenience function to get last character position
-    function last(position: vscode.Position): number {
-        let line = editor?.document.lineAt(position);
-        return Math.max((line?.text.length || 1) -1, 0);
-    }
-
-    // convenience function to count patterns in a string
-    function count(line: string, pattern: RegExp): number {
-        return (line.match(pattern)||[]).length;
-    }
-
     try {
 
         let depth = 0;
@@ -183,8 +168,8 @@ export function findFunctionEnd(functionStart: vscode.Position): vscode.Position
             line = getBody(editor,current);
 
             // get open and closing braces
-            let open = count(line,/{/g);
-            let close = count(line,/}/g);
+            let open = countMatch(line,/{/g);
+            let close = countMatch(line,/}/g);
 
             // update the depth
             depth += open - close;
@@ -198,7 +183,7 @@ export function findFunctionEnd(functionStart: vscode.Position): vscode.Position
 
         // advance to the end of the line and return
         return current.with({ 
-            character: last(current) 
+            character: lastCharacter(current) 
         });
     }
     catch(e){

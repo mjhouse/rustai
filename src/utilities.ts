@@ -6,12 +6,13 @@ export enum ObjectType {
 }
 
 export enum Type {
-    Unknown,
-    Trait,
-    Struct,
-    Function,
-    TraitImpl,
-    StructImpl
+    Unknown = 'Unknown',
+    Macro = 'Macro',
+    Trait = 'Trait',
+    Struct = 'Struct',
+    Function = 'Function',
+    TraitImpl = 'TraitImpl',
+    StructImpl = 'StructImpl'
 }
 
 export function takeWhile<Item>(array: Item[], predicate: (v: Item) => boolean): Item[] {
@@ -29,6 +30,10 @@ export function getIndent(value: string): string {
         value.split(''), 
         (s) => /\s+/.test(s)
     ).join('')
+}
+
+export function isMacro(text: string): boolean {
+    return /(^|\s+)macro_rules!\s+/.test(text);
 }
 
 export function isTrait(text: string): boolean {
@@ -53,6 +58,10 @@ export function isStructImpl(text: string): boolean {
 
 function getMatch(text: string, regex: RegExp): string | null {
     return text.match(regex)?.at(1) || null;
+}
+
+export function getMacro(text: string): string | null {
+    return getMatch(text,/macro_rules!\s+(\w+)/);    
 }
 
 export function getTrait(text: string): string | null {
@@ -81,6 +90,7 @@ export function getType(text: string): Type {
     if(isFunction(text)) {return Type.Function;}
     if(isStruct(text)) {return Type.Struct;}
     if(isTrait(text)) {return Type.Trait;}
+    if(isMacro(text)) {return Type.Macro;}
     return Type.Unknown;
 }
 
@@ -91,8 +101,38 @@ export function getObject(text: string, type: Type): string | null {
         case Type.Function: return getFunction(text);
         case Type.Struct: return getStruct(text);
         case Type.Trait: return getTrait(text);
+        case Type.Macro: return getMacro(text);
         default: return null;
     }
+}
+
+export async function getCurrentScope(): Promise<Type> {
+    const editor = vscode.window.activeTextEditor;
+    const position = editor?.selection?.active;
+
+    let type = Type.Unknown;
+
+    if(!editor){
+        return type;
+    }
+
+    if(!position){
+        return type;
+    }
+
+    let current = new vscode.Position(position.line,0);
+
+    try {
+        while(type == Type.Unknown && current.line >= 0){
+            type = getType(editor.document.lineAt(current).text);
+            current = new vscode.Position(current.line - 1, 0);
+        }
+    }
+    catch(e){
+        console.log(e);
+    }
+
+    return type;
 }
 
 export function cleanComment(indent: string, text: string): string {
@@ -125,8 +165,16 @@ export function removeComments(line: string): string {
     return line;
 }
 
+export function countMatch(line: string, pattern: RegExp): number {
+    return (line.match(pattern)||[]).length;
+}
+
 export function lastCharacter(position: vscode.Position): number {
     const editor = vscode.window.activeTextEditor;
     let line = editor?.document.lineAt(position);
     return Math.max(line?.text.length || 0, 0);
+}
+
+export function getBody(editor: vscode.TextEditor, position: vscode.Position): string {
+    return editor.document.lineAt(position).text;
 }

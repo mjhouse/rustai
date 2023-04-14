@@ -2,10 +2,37 @@ import * as vscode from 'vscode';
 import { Configuration, OpenAIApi } from "openai";
 import { Function } from "./functions";
 import { removeComments } from './utilities';
+import { Struct } from './structs';
+import { Trait } from './traits';
 
 const DEFAULT_MODEL: string = 'text-davinci-002';
 const DEFAULT_TEMP: number = 0.25;
 const DEFAULT_TOKENS: number = 2000;
+
+const TRAIT_COMMENT = (body: string) => {
+    return `
+        Write a Rust doc comment for the following trait:
+        "${body}"
+
+        The Rust doc comment should be written in markdown using three slashes on each line (like '///'), 
+        contain a brief description of what the trait does based on the properties in the trait body,
+        and a minimal example to demonstrate how to use the trait. The example should assume that there 
+        is an object called "MyStruct" that implements the trait and has a 'new' function used to create 
+        the "MyStruct" object.
+    `
+}
+
+const STRUCT_COMMENT = (body: string) => {
+    return `
+        Write a Rust doc comment for the following struct:
+        "${body}"
+
+        The Rust doc comment should be written in markdown using three slashes on each line (like '///'), 
+        contain a brief description of what the struct does based on the properties in the struct body,
+        and a minimal example to demonstrate how to create an instance of the struct. The example should
+        assume that there is a 'new' function that can be used to create the object.
+    `
+}
 
 const METHOD_COMMENT = (text: string, name: string) => {
     return `
@@ -74,13 +101,41 @@ export async function generateFunctionComment(target: Function): Promise<string 
     return result;
 }
 
-export async function insertFunctionComment(target: Function, comment: string): Promise<void> {
+export async function generateStructComment(target: Struct): Promise<string | null> {
+    const editor = vscode.window.activeTextEditor;
+    const text = editor?.document.getText(target.body);
+
+    if(!text){
+        return null;
+    }
+
+    const prompt = STRUCT_COMMENT(text);
+    const result = generate(prompt);
+
+    return result;
+}
+
+export async function generateTraitComment(target: Trait): Promise<string | null> {
+    const editor = vscode.window.activeTextEditor;
+    const text = editor?.document.getText(target.body);
+
+    if(!text){
+        return null;
+    }
+
+    const prompt = TRAIT_COMMENT(text);
+    const result = generate(prompt);
+
+    return result;
+}
+
+export async function insertComment(position: number, comment: string): Promise<void> {
     const editor = vscode.window.activeTextEditor;
 
     if(!editor){ return; }
 
     // declare the previous position, line text and remove list
-    let current = new vscode.Position(target.body.anchor.line - 1,0);
+    let current = new vscode.Position(position - 1,0);
     let line = editor.document.lineAt(current).text;
     let remove: vscode.Selection[] = [];
 
@@ -114,7 +169,7 @@ export async function insertFunctionComment(target: Function, comment: string): 
     });
 
     // adjust the insertion point to account for removed comments
-    let insert_line = target.body.anchor.line - remove.length;
+    let insert_line = position - remove.length;
     let insert_pos = new vscode.Position(insert_line,0);
 
     // insert the comment as a snippet for user acceptance
